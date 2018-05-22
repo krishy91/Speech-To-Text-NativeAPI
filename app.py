@@ -9,30 +9,30 @@ import sox
 import scipy.io.wavfile as wav
 import pandas as pd
 import numpy as np
-from random import shuffle
-
+from random import shuffle, randint
 
 from deepspeech.model import Model
 
 app = Flask(__name__)
 
-DS_HOME = "/home/krishna/Documents/DeepSpeech"
+ds = None
 
-trimtfm = sox.Transformer()
+DS_HOME = "/home/krishna/Documents/DeepSpeech/"
+
+trimtfm = sox.Transformer()	
 trimtfm.vad()
 trimtfm.vad(location=-1)
     
-tempo_tfm1 = sox.Transformer()
-tempo_tfm1.tempo(0.9)
+#tempo_tfm1.tempo(0.9)
 	
-tempo_tfm2 = sox.Transformer()
-tempo_tfm2.tempo(1.1)   
+#tempo_tfm2 = sox.Transformer()
+#tempo_tfm2.tempo(1.1)   
 	
-speed_tfm1 = sox.Transformer()
-speed_tfm1.speed(0.9)
+#speed_tfm1 = sox.Transformer()
+#speed_tfm1.speed(0.9)
 
-speed_tfm2 = sox.Transformer()
-speed_tfm2.speed(1.1)
+#speed_tfm2 = sox.Transformer()
+#speed_tfm2.speed(1.1)
 
 # These constants control the beam search decoder
 
@@ -68,27 +68,15 @@ def hello():
 def transcribe_audio():
     audio = request.json['wav_url']
     
-    model = "/home/krishna/Documents/DeepSpeech/models/digits/output_graph.pb"
-    alphabet = "/home/krishna/Documents/DeepSpeech/pretrained/models/alphabet.txt"
-    trie = "/home/krishna/Documents/DeepSpeech/pretrained/models/trie" 
-    #audio =  "/home/krishna/Documents/Thesis_Data/custom/two.wav"
+    fs, audio = wav.read(audio)
+    # We can assume 16kHz
+    audio_length = len(audio) * ( 1 / 16000)
     
-    #print('Loading model from file %s' % (model), file=sys.stderr)
-    #model_load_start = timer()
-    #ds = Model(model, N_FEATURES, N_CONTEXT, alphabet, BEAM_WIDTH)
-    #model_load_end = timer() - model_load_start
-    #print('Loaded model in %0.3fs.' % (model_load_end), file=sys.stderr)
-    #
-    #fs, audio = wav.read(audio)
-    ## We can assume 16kHz
-    #audio_length = len(audio) * ( 1 / 16000)
-    #
-    #print('Running inference.', file=sys.stderr)
-    #inference_start = timer()
-    #result = ds.stt(audio, fs)
-    #inference_end = timer() - inference_start
-    #print('Inference took %0.3fs for %0.3fs audio file.' % (inference_end, audio_length), file=sys.stderr)
-    result = "test"
+    print('Running inference.', file=sys.stderr)
+    inference_start = timer()
+    result = ds.stt(audio, fs)
+    inference_end = timer() - inference_start
+    print('Inference took %0.3fs for %0.3fs audio file.' % (inference_end, audio_length), file=sys.stderr)
     return result
     
 @app.route("/feedback", methods=["POST"])
@@ -104,30 +92,33 @@ def feedback():
     trimmed = path + "_trimmed" + "." + extension
     trimtfm.build(audio, trimmed)
     
-    augment_audio(trimmed, text)
+    augment_audio(trimmed, text, False)
 
     return "okay";   
 
-def augment_audio(audio, text):
-	path, extension = audio.split(".") 
-	
-	file1 = path + "_tfm1." + extension
-	file2 = path + "_tfm2." + extension
-	file3 = path + "_tfm3." + extension
-	file4 = path + "_tfm4." + extension
-	file5 = audio 
-	
-	files = [file1, file2, file3, file4, file5]
-	shuffle(files)
-
-	tempo_tfm1.build(audio, file1)
-	tempo_tfm2.build(audio, file2)
-	speed_tfm1.build(audio, file3) 
-	speed_tfm2.build(audio, file4)	
-	
-	newtrain = createNewDataset("train", files[:4], text)
-	newtest  = createNewDataset("test", files[4:], text)
-	#createNewDataset("train", files[5:], text)
+def augment_audio(audio, text, useSpeed):
+    path, extension = audio.split(".") 
+    files = [audio]
+    for x in range(0, 15):
+        transformer = sox.Transformer()		
+        newfile = ""
+        if(useSpeed):
+            newfile = path + "speed" + str(x) + "." + extension
+            random_speed = (randint(0,20) * 0.01) + 0.9
+            print(random_speed)
+            transformer.speed(random_speed)
+            transformer.build(audio, newfile)
+        else:
+            newfile = path + "tempo" + str(x) + "." + extension
+            random_tempo = (randint(0,20) * 0.01) + 0.9
+            print(random_tempo)
+            transformer.tempo(random_tempo)
+            transformer.build(audio, newfile)
+        files.append(newfile)	
+    shuffle(files)
+    newtrain = createNewDataset("train", files[:12], text)
+    newtest  = createNewDataset("test", files[12:], text)
+    #createNewDataset("train", files[5:], text)
 		
 		
 def createNewDataset(dataset_type, files, text):
@@ -151,5 +142,14 @@ def createNewDataset(dataset_type, files, text):
 	
 	return newfilename
 		
-if __name__ == '__main__':
+if __name__ == '__main__':  
+    model = DS_HOME + "models/digits/output_graph.pb"
+    alphabet = DS_HOME + "data/alphabet.txt"
+    trie = DS_HOME + "data/lm/trie" 
+    
+    print('Loading model from file %s' % (model), file=sys.stderr)
+    model_load_start = timer()
+    ds = Model(model, N_FEATURES, N_CONTEXT, alphabet, BEAM_WIDTH)
+    model_load_end = timer() - model_load_start
+    print('Loaded model in %0.3fs.' % (model_load_end), file=sys.stderr)
     app.run(debug=True)
