@@ -1,0 +1,6 @@
+flask
+sox
+scipy
+pandas
+numpy
+deepspeech
