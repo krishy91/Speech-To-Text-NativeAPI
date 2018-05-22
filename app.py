@@ -9,6 +9,7 @@ import sox
 import scipy.io.wavfile as wav
 import pandas as pd
 import numpy as np
+import json
 from random import shuffle, randint
 
 from deepspeech.model import Model
@@ -17,7 +18,7 @@ app = Flask(__name__)
 
 ds = None
 
-DS_HOME = "/home/krishna/Documents/DeepSpeech/"
+DS_HOME = ""
 
 trimtfm = sox.Transformer()	
 trimtfm.vad()
@@ -142,8 +143,15 @@ def createNewDataset(dataset_type, files, text):
 	
 	return newfilename
 		
-if __name__ == '__main__':  
-    model = DS_HOME + "models/digits/output_graph.pb"
+if __name__ == '__main__':
+    with open('config.json') as json_data_file:
+        data    = json.load(json_data_file)
+        DS_HOME = str(data["app"]["deepspeech_home"])
+        model   = str(data["app"]["deepspeech_model"])
+
+    print(DS_HOME)
+    print(model)
+    #model = DS_HOME + "models/digits/output_graph.pb"
     alphabet = DS_HOME + "data/alphabet.txt"
     trie = DS_HOME + "data/lm/trie" 
     

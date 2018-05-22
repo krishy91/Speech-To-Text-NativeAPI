@@ -1,0 +1,6 @@
+{
+    "app": {
+      "deepspeech_home" : "/home/krishna/Documents/DeepSpeech/",
+      "deepspeech_model" : "/home/krishna/Documents/DeepSpeech/models/digits/output_graph.pb"
+    }
+}
